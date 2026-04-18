@@ -1,0 +1,9 @@
+# Ignore lazy.nvim installed plugins
+lazy-lock.json
+plugin/
+
+# Ignore LSP/cache data
+.luarc.json
+
+# Ignore log files
+*.log
