@@ -13,7 +13,8 @@ return {
   {
     "akinsho/toggleterm.nvim",
     opts = {
-      shell = "pwsh.exe -NoLogo",
+      shell = vim.fn.has "win32" == 1 and "pwsh.exe -NoLogo"
+        or (vim.fn.executable "fish" == 1 and "fish" or vim.o.shell),
       direction = "horizontal",
       size = 15,
       float_opts = {
@@ -64,21 +65,17 @@ return {
       local npairs = require "nvim-autopairs"
       local Rule = require "nvim-autopairs.rule"
       local cond = require "nvim-autopairs.conds"
-      npairs.add_rules(
-        {
-          Rule("$", "$", { "tex", "latex" })
-            :with_pair(cond.not_after_regex "%%")
-            :with_pair(cond.not_before_regex("xxx", 3))
-            :with_move(cond.none())
-            :with_del(cond.not_after_regex "xx")
-            :with_cr(cond.none()),
-        },
-        Rule("a", "a", "-vim")
-      )
+      npairs.add_rules({
+        Rule("$", "$", { "tex", "latex" })
+          :with_pair(cond.not_after_regex "%%")
+          :with_pair(cond.not_before_regex("xxx", 3))
+          :with_move(cond.none())
+          :with_del(cond.not_after_regex "xx")
+          :with_cr(cond.none()),
+      }, Rule("a", "a", "-vim"))
     end,
   },
 }
-
 
 -- -- if true then return {} end
 -- -- You can also add or configure plugins by creating files in this `plugins/` folder
