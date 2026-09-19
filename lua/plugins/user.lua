@@ -2,6 +2,121 @@
 return {
 
   -- == Plugins ==
+  --- Project Structure
+  {
+    "nvim-neo-tree/neo-tree.nvim",
+    opts = function(_, opts)
+      -- 1. Enable native collapsing of empty middle directories
+      opts.filesystem = opts.filesystem or {}
+      opts.filesystem.group_empty_dirs = true
+
+      -- 2. Clean up visual noise so paths render tightly like your STS image
+      opts.filesystem.filtered_items = opts.filesystem.filtered_items or {}
+      opts.filesystem.filtered_items.hide_dotfiles = false
+
+      -- 3. Instruct the UI component to format collapsed folders using dot notation
+      opts.components = opts.components or {}
+      opts.components.name = function(config, node, state)
+        local cc = require "neo-tree.sources.common.components"
+        local result = cc.name(config, node, state)
+
+        -- If this folder is grouped/collapsed by Neo-tree
+        if node.type == "directory" and node.extra and node.extra.grouped_path then
+          -- Replace the file slashes with dots to read as 'com.thim.java.school'
+          local clean_path = node.extra.grouped_path:gsub("/", ".")
+          result.text = node.name .. "." .. clean_path
+        end
+        return result
+      end
+
+      return opts
+    end,
+  },
+  -- hide import
+  {
+    "dmtrKovalenko/fold-imports.nvim",
+    dependencies = { "nvim-treesitter/nvim-treesitter" },
+    event = "BufReadPost",
+    opts = {
+      -- Automatically fold the imports as soon as you open a Java file
+      auto_fold = true,
+    },
+  },
+  -- nvim-info
+  {
+    "kevinhwang91/nvim-ufo",
+    dependencies = { "kevinhwang91/promise-async" },
+    event = "BufReadPost",
+    opts = function(_, opts)
+      -- Keep your existing AstroNvim ufo configurations intact
+      opts.provider_selector = function(bufnr, filetype, buftype) return { "treesitter", "indent" } end
+      return opts
+    end,
+    config = function(_, opts)
+      local ufo = require "ufo"
+      ufo.setup(opts)
+
+      -- Auto-collapse import statement blocks specifically for Java files
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = "java",
+        callback = function()
+          vim.schedule(function()
+            -- Scan the text buffer for import strings and collapse them dynamically
+            local winid = vim.api.nvim_get_current_win()
+            ufo.closeFoldsWith(winid, 0) -- Closes lowest level folds (imports) immediately
+          end)
+        end,
+      })
+    end,
+  },
+  {
+    "mfussenegger/nvim-jdtls",
+    opts = function(_, opts)
+      -- Safeguard settings structure
+      opts.settings = opts.settings or {}
+      opts.settings.java = opts.settings.java or {}
+
+      -- 1. Enable completion and automatic signature helpers
+      opts.settings.java.completion = {
+        guessMethodArguments = true,
+        -- Set up preferred ordering format matching IntelliJ
+        importOrder = {
+          "java",
+          "javax",
+          "org",
+          "com",
+        },
+      }
+
+      -- 2. Activate extended capabilities to allow automatic code-actions on completion
+      opts.init_options = opts.init_options or {}
+      opts.init_options.extendedClientCapabilities = {
+        progressReportProvider = true,
+        classFileContentsSupport = true,
+        -- This allows auto-importing when you select a class from the popup menu
+        generateModifiersCommand = true,
+        hashCodeEqualsCommand = true,
+        toStringCommand = true,
+        advancedOrganizeImportsSupport = true,
+      }
+
+      return opts
+    end,
+  },
+  {
+    "AstroNvim/astrocore",
+    ---@type AstroCoreOpts
+    opts = {
+      g = {
+        -- Controls the smooth animation travel time when hitting navigation keys
+        neovide_cursor_animation_length = 0.08, -- Lower value = faster snapping, Higher = smoother glide
+        neovide_cursor_trail_size = 0.7, -- Visual tail length trailing behind the movement
+
+        -- Automatically moves the actual window mouse pointer to match your text cursor position
+        neovide_cursor_antialiasing = true,
+      },
+    },
+  },
 
   {
     "ray-x/lsp_signature.nvim",

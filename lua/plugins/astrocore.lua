@@ -60,7 +60,10 @@ return {
         -- navigate buffer tabs
         ["]b"] = { function() require("astrocore.buffer").nav(vim.v.count1) end, desc = "Next buffer" },
         ["[b"] = { function() require("astrocore.buffer").nav(-vim.v.count1) end, desc = "Previous buffer" },
-
+        ["<leader>lo"] = {
+          function() require("jdtls").organize_imports() end,
+          desc = "Optimize/Clean Imports",
+        },
         -- mappings seen under group name "Buffer"
         ["<Leader>bd"] = {
           function()
@@ -77,6 +80,12 @@ return {
 
         -- setting a mapping to false will disable it
         -- ["<C-S>"] = false,
+      },
+    },
+    git_worktrees = {
+      {
+        toplevel = vim.env.HOME,
+        gitdir = vim.env.HOME .. "/.dotfiles",
       },
     },
   },
