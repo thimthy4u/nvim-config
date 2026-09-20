@@ -10,6 +10,5 @@ return {
   { import = "astrocommunity.recipes.picker-nvchad-theme" },
   { import = "astrocommunity.pack.java" },
   { import = "astrocommunity.recipes.neovide" },
-  { import = "astrocommunity.motion.flit-nvim" },
-  -- import/override with your plugins folder
+  { import = "astrocommunity.motion.leap-nvim" },
 }

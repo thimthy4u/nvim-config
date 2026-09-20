@@ -190,6 +190,26 @@ return {
       }, Rule("a", "a", "-vim"))
     end,
   },
+  {
+    "ggandor/leap.nvim",
+    keys = { "s", "S" },
+    config = function()
+      -- Safely look for the module so Neovim never crashes at startup
+      local status_ok, leap = pcall(require, "leap")
+      if not status_ok then return end
+
+      -- If found, initialize your custom settings here
+      leap.add_default_mappings()
+    end,
+  },
+
+  {
+    "jay-babu/mason-nvim-dap.nvim",
+    opts = {
+      ensure_installed = { "python" },
+      handlers = {},
+    },
+  },
 }
 
 -- -- if true then return {} end

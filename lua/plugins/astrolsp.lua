@@ -8,6 +8,40 @@ return {
   "AstroNvim/astrolsp",
   ---@type AstroLSPOpts
   opts = {
+    -- Configure language server capabilities
+    capabilities = {
+      textDocument = {
+        completion = {
+          completionItem = {
+            -- This setting tells the editor to allow auto-imports upon selecting an item
+            additionalTextEditsSupport = true,
+          },
+        },
+      },
+    },
+    -- Configure JDTLS specific behaviors
+    config = {
+      jdtls = {
+        settings = {
+          java = {
+            completion = {
+              -- Automatically guess method arguments when auto-completing
+              guessMethodArguments = true,
+              favoriteStaticMembers = {
+                "org.hamcrest.MatcherAssert.assertThat",
+                "org.hamcrest.Matchers.*",
+                "org.junit.jupiter.api.Assertions.*",
+                "java.util.Objects.requireNonNull",
+                "java.util.Objects.requireNonNullElse",
+              },
+            },
+          },
+        },
+        cmd_env = {
+          JVM_ARGS = "--sun-misc-unsafe-memory-access=allow",
+        },
+      },
+    },
     -- Configuration table of features provided by AstroLSP
     features = {
       codelens = true, -- enable/disable codelens refresh on start
@@ -41,9 +75,9 @@ return {
     },
     -- customize language server configuration passed to `vim.lsp.config`
     -- client specific configuration can also go in `lsp/` in your configuration root (see `:h lsp-config`)
-    config = {
-      -- ["*"] = { capabilities = {} }, -- modify default LSP client settings such as capabilities
-    },
+    -- config = {
+    --   -- ["*"] = { capabilities = {} }, -- modify default LSP client settings such as capabilities
+    -- },
     -- customize how language servers are attached
     handlers = {
       -- a function with the key `*` modifies the default handler, functions takes the server name as the parameter
