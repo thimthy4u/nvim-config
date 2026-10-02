@@ -1,8 +1,30 @@
--- This will run last in the setup process.
--- This is just pure lua so anything that doesn't
--- fit in the normal config locations above can go here
--- This block executes code-actions after AstroNvim loads completely
+-- lua/polish.lua
 
+-- 1. Apply indentation rules to ALL Java files (new and existing)
+-- lua/polish.lua
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "java",
+  callback = function()
+    -- Clear treesitter's indentexpr so cindent actually runs
+    vim.bo.indentexpr = ""
+
+    -- Enable C/Java block indentation
+    vim.bo.cindent = true
+    vim.bo.smartindent = false
+    vim.bo.autoindent = true
+
+    -- Tabs and spaces (1 tab = 4 spaces)
+    vim.bo.expandtab = true
+    vim.bo.tabstop = 4
+    vim.bo.shiftwidth = 4
+    vim.bo.softtabstop = 4
+
+    -- Java indentation flags for cindent
+    vim.bo.cinoptions = "j1,(0,ws,m1"
+  end,
+})
+
+-- 2. Inject template only when creating a BRAND NEW Java file
 vim.api.nvim_create_autocmd("BufNewFile", {
   pattern = "*.java",
   callback = function()

@@ -7,24 +7,39 @@
 return {
   "AstroNvim/astrocore",
   ---@type AstroCoreOpts
-  opts = {
+  opts = function(_, opts)
     -- Configure core features of AstroNvim
-    features = {
+    opts.features = {
       large_buf = { size = 1024 * 256, lines = 10000 }, -- set global limits for large files for disabling features like treesitter
       autopairs = true, -- enable autopairs at start
       cmp = true, -- enable completion at start
       diagnostics = { virtual_text = true, virtual_lines = false }, -- diagnostic settings on startup
       highlighturl = true, -- highlight URLs at start
       notifications = true, -- enable notifications at start
-    },
+    }
+    opts.mappings.n["w"] = {
+      function()
+        -- 1. If Java, use native cindent formatting so broken/incomplete syntax still formats cleanly
+        if vim.bo.filetype == "java" then
+          local view = vim.fn.winsaveview()
+          vim.cmd "silent! keepjumps normal! gg=G"
+          vim.fn.winrestview(view)
+          vim.cmd "write"
+        else
+          -- 2. For all other languages, use AstroNvim's standard save-and-format
+          vim.cmd "write"
+        end
+      end,
+      desc = "Format and Save",
+    }
     -- Diagnostics configuration (for vim.diagnostics.config({...})) when diagnostics are on
-    diagnostics = {
+    opts.diagnostics = {
       virtual_text = true,
       underline = true,
-    },
+    }
+
     -- passed to `vim.filetype.add`
-    filetypes = {
-      -- see `:h vim.filetype.add` for usage
+    opts.filetypes = {
       extension = {
         foo = "fooscript",
       },
@@ -34,147 +49,56 @@ return {
       pattern = {
         [".*/etc/foo/.*"] = "fooscript",
       },
-    },
+    }
+
     -- vim options can be configured here
-    options = {
-      opt = { -- vim.opt.<key>
+    opts.options = {
+      opt = { -- vim.opt.
         relativenumber = true, -- sets vim.opt.relativenumber
         number = true, -- sets vim.opt.number
         spell = false, -- sets vim.opt.spell
         signcolumn = "yes", -- sets vim.opt.signcolumn to yes
         wrap = false, -- sets vim.opt.wrap
+
+        -- Tab & Indentation Settings
+        tabstop = 4, -- Visual width of a tab character (stops 8-space wide jumps)
+        shiftwidth = 4, -- Number of spaces used for auto-indentation (like inside if blocks)
+        softtabstop = 4, -- Number of spaces inserted when pressing
+        expandtab = true, -- Converts  into 4 spaces
       },
-      g = { -- vim.g.<key>
-        -- configure global vim variables (vim.g)
-        -- NOTE: `mapleader` and `maplocalleader` must be set in the AstroNvim opts or before `lazy.setup`
-        -- This can be found in the `lua/lazy_setup.lua` file
+      g = { -- vim.g.
+        mouse = "a",
       },
-    },
-    -- Mappings can be configured through AstroCore as well.
-    -- NOTE: keycodes follow the casing in the vimdocs. For example, `<Leader>` must be capitalized
-    mappings = {
-      -- first key is the mode
-      n = {
-        --  Smart Java Creation Shortcut
-        ["<A-i>"] = {
-          function()
-            local target_dir = ""
+    }
 
-            -- 1. Grab directory directly from Neo-tree if active
-            if vim.bo.filetype == "neo-tree" then
-              local success, manager = pcall(require, "neo-tree.sources.manager")
-              if success and manager then
-                local fs_state = manager.get_state "filesystem"
-                if fs_state and fs_state.tree then
-                  local node = fs_state.tree:get_node()
-                  if node then
-                    if node.type == "directory" then
-                      target_dir = node.path
-                    else
-                      target_dir = vim.fs.dirname(node.path)
-                    end
-                  end
-                end
-              end
-            else
-              target_dir = vim.fn.expand "%:p:h"
-            end
+    -- Ensure mappings sub-tables exist safely
+    opts.mappings = opts.mappings or {}
+    opts.mappings.n = opts.mappings.n or {}
 
-            if not target_dir or target_dir == "" then target_dir = vim.fn.getcwd() end
-            target_dir = target_dir:gsub("\\", "/")
+    -- Core navigation mappings
+    opts.mappings.n["]b"] = { function() require("astrocore.buffer").nav(vim.v.count1) end, desc = "Next buffer" }
+    opts.mappings.n["[b"] = { function() require("astrocore.buffer").nav(-vim.v.count1) end, desc = "Previous buffer" }
+    opts.mappings.n["lo"] = { function() require("jdtls").organize_imports() end, desc = "Optimize/Clean Imports" }
+    opts.mappings.n["bd"] = {
+      function()
+        require("astroui.status.heirline").buffer_picker(function(bufnr) require("astrocore.buffer").close(bufnr) end)
+      end,
+      desc = "Close buffer from tabline",
+    }
 
-            -- 2. Ask for the file name
-            vim.ui.input({ prompt = "New Java File Name: " }, function(filename)
-              if not filename or filename == "" then return end
+    -- import java runner
+    local success, java_runners = pcall(require, "config.java_runners")
+    if success and java_runners then
+      opts.mappings.n = vim.tbl_deep_extend("force", opts.mappings.n, java_runners.get_mappings())
+    end
 
-              if not filename:match "%.java$" then filename = filename .. ".java" end
-
-              -- 3. Prompt for Type Selection
-              local options = { "class", "interface", "enum" }
-              vim.ui.select(options, {
-                prompt = "Select Java File Type:",
-              }, function(choice)
-                if not choice then return end
-
-                local full_file_path = target_dir .. "/" .. filename
-
-                -- 4. Create an independent, fully modifiable buffer in memory
-                local target_bufnr = vim.api.nvim_create_buf(true, false)
-                vim.api.nvim_buf_set_name(target_bufnr, full_file_path)
-                vim.api.nvim_set_option_value("modifiable", true, { buf = target_bufnr })
-
-                -- 5. Calculate package structure line (without newlines!)
-                local package_match = full_file_path:match "/java/(.+)"
-                local lines = {}
-
-                if package_match then
-                  local clean_package = package_match:match "(.+)/[^/]+$"
-                  if clean_package then
-                    -- Append the clean package line and a blank line string sequentially
-                    table.insert(lines, "package " .. clean_package:gsub("/", ".") .. ";")
-                    table.insert(lines, "")
-                  end
-                end
-
-                local class_name = filename:gsub("%.java$", "")
-
-                -- Append standard boilerplate syntax definitions line-by-line
-                table.insert(lines, "public " .. choice .. " " .. class_name .. " {")
-                table.insert(lines, "    ")
-                table.insert(lines, "}")
-
-                -- 6. Safely inject the clean line elements into the buffer array
-                vim.api.nvim_buf_set_lines(target_bufnr, 0, -1, false, lines)
-
-                -- 7. Switch window focus to the main editor space and render the file buffer
-                vim.schedule(function()
-                  if vim.bo.filetype == "neo-tree" then vim.cmd "wincmd l" end
-
-                  vim.api.nvim_set_current_buf(target_bufnr)
-                  vim.cmd "silent! write"
-
-                  -- Calculate exact line insertion coordinates dynamically based on package lines
-                  local cursor_row = #lines - 1
-                  local target_win = vim.api.nvim_get_current_win()
-                  vim.api.nvim_win_set_cursor(target_win, { cursor_row, 4 })
-                  vim.cmd "startinsert!"
-                end)
-              end)
-            end)
-          end,
-          desc = "Create Modifiable Java File",
-        }, -- second key is the lefthand side of the map
-
-        -- navigate buffer tabs
-        ["]b"] = { function() require("astrocore.buffer").nav(vim.v.count1) end, desc = "Next buffer" },
-        ["[b"] = { function() require("astrocore.buffer").nav(-vim.v.count1) end, desc = "Previous buffer" },
-        ["<leader>lo"] = {
-          function() require("jdtls").organize_imports() end,
-          desc = "Optimize/Clean Imports",
-        },
-        -- mappings seen under group name "Buffer"
-        ["<Leader>bd"] = {
-          function()
-            require("astroui.status.heirline").buffer_picker(
-              function(bufnr) require("astrocore.buffer").close(bufnr) end
-            )
-          end,
-          desc = "Close buffer from tabline",
-        },
-
-        -- tables with just a `desc` key will be registered with which-key if it's installed
-        -- this is useful for naming menus
-        -- ["<Leader>b"] = { desc = "Buffers" },
-
-        -- setting a mapping to false will disable it
-        -- ["<C-S>"] = false,
-      },
-    },
-    git_worktrees = {
+    opts.git_worktrees = {
       {
         toplevel = vim.env.HOME,
         gitdir = vim.env.HOME .. "/.dotfiles",
       },
-    },
-  },
+    }
+
+    return opts
+  end,
 }

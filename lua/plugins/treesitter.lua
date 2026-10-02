@@ -1,23 +1,20 @@
 -- Customize Treesitter
--- --------------------
--- Treesitter customizations are handled with AstroCore
--- as nvim-treesitter simply provides a download utility for parsers
-
 ---@type LazySpec
 return {
-  "AstroNvim/astrocore",
-  ---@type AstroCoreOpts
-  opts = {
-    treesitter = {
-      highlight = true, -- enable/disable treesitter based highlighting
-      indent = true, -- enable/disable treesitter based indentation
-      auto_install = true, -- enable/disable automatic installation of detected languages
-      ensure_installed = {
-        "lua",
-        "vim",
-        "java",
-        -- add more arguments for adding more treesitter parsers
-      },
-    },
-  },
+  "nvim-treesitter/nvim-treesitter",
+  opts = function(_, opts)
+    opts.indent = opts.indent or {}
+    opts.indent.enable = true
+    -- Disable treesitter indent specifically for Java so native cindent handles it:
+    opts.indent.disable = opts.indent.disable or {}
+    table.insert(opts.indent.disable, "java")
+
+    opts.ensure_installed = opts.ensure_installed or {}
+    vim.list_extend(opts.ensure_installed, {
+      "lua",
+      "vim",
+      "java",
+    })
+  end,
 }
+
